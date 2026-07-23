@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>LEVEL 3 - Healthy Plate Hunt</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; touch-action: none; background: #000; }
+        
+        #crosshair {
+            position: absolute; top: 50%; left: 50%;
+            width: 8px; height: 8px; margin-top: -4px; margin-left: -4px;
+            background-color: rgba(255, 255, 255, 0.9); border-radius: 50%;
+            border: 2px solid black; pointer-events: none; z-index: 10;
+        }
+
+        /* BUTANG PAPAN INFO ATAS KIRI */
+        #info-btn {
+            position: absolute; top: 15px; left: 15px; z-index: 30;
+            background: rgba(15, 23, 42, 0.9); border: 2px solid #f59e0b;
+            color: #facc15; font-size: 13px; font-weight: bold;
+            padding: 8px 14px; border-radius: 12px; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5); display: flex;
+            align-items: center; gap: 6px; transition: 0.2s;
+        }
+        #info-btn:hover { background: #f59e0b; color: #000; }
+
+        /* UI MISI HUD */
+        #ui-overlay {
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            display: flex; justify-content: center; align-items: center;
+            pointer-events: none; z-index: 10; width: 95%; max-width: 700px;
+        }
+        .hud-card { 
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.92));
+            color: #ffffff; padding: 8px 16px; 
+            border-radius: 16px; border: 2px solid #f59e0b;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+            text-align: center; width: 100%;
+        }
+        .mission-title {
+            font-size: 13px; font-weight: 800; color: #facc15; letter-spacing: 1px;
+            text-transform: uppercase; margin-bottom: 4px; text-shadow: 1px 1px 3px #000;
+        }
+        .mission-steps {
+            display: flex; justify-content: center; align-items: center; gap: 6px;
+            flex-wrap: wrap; font-size: 11px; font-weight: 600; color: #e2e8f0;
+        }
+        .step-badge {
+            background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 2px 6px; border-radius: 8px; display: inline-flex; align-items: center; gap: 4px;
+        }
+        .step-arrow { color: #f59e0b; font-weight: bold; }
+
+        #interaction-prompt {
+            position: absolute; bottom: 25%; width: 100%; text-align: center;
+            color: #facc15; font-size: 18px; font-weight: bold; text-shadow: 2px 2px 4px #000;
+            display: none; pointer-events: none; z-index: 10; padding: 0 10px;
+        }
+
+        /* CHEF DIALOGUE UI */
+        #chef-dialog-box {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 90%; max-width: 550px; background: rgba(15, 23, 42, 0.98);
+            border: 3px solid #f59e0b; border-radius: 20px; padding: 20px;
+            color: #ffffff; display: none; flex-direction: column; z-index: 50; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+        #chef-dialog-box h3 { margin: 0 0 10px 0; color: #f59e0b; font-size: 18px; }
+        #chef-dialog-box p { margin: 6px 0; font-size: 13px; line-height: 1.4; color: #e2e8f0; }
+        .chef-info-list { margin: 6px 0 15px 0; padding-left: 20px; font-size: 12px; color: #cbd5e1; }
+        .chef-info-list li { margin-bottom: 4px; }
+        .close-dialog-btn {
+            align-self: center; background: #f59e0b; color: #000; border: none;
+            padding: 10px 24px; border-radius: 20px; font-weight: bold; font-size: 14px;
+            cursor: pointer; transition: 0.2s;
+        }
+
+        /* POP-UP GAMBAR INFOGRAFIK (TERBUKA AUTOMATIK BILA TEKAN ESC) */
+        #info-board-modal {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 90%; max-width: 600px; background: rgba(15, 23, 42, 0.98);
+            border: 3px solid #38bdf8; border-radius: 20px; padding: 20px;
+            display: none; flex-direction: column; align-items: center; z-index: 55;
+            box-shadow: 0 0 30px rgba(56, 189, 248, 0.5);
+        }
+        #info-board-modal img {
+            width: 100%; max-height: 60vh; object-fit: contain; border-radius: 12px; border: 2px solid #334155;
+        }
+
+        #blocker {
+            position: absolute; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.85); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; color: white; cursor: pointer; z-index: 40;
+            text-align: center; padding: 20px;
+        }
+
+        /* MOBILE CONTROLLERS */
+        #mobile-controls {
+            position: absolute; bottom: 15px; left: 0; width: 100%; height: 160px;
+            pointer-events: none; z-index: 30; display: none;
+        }
+        
+        .dpad-container {
+            position: absolute; bottom: 10px; left: 15px; width: 140px; height: 140px;
+            pointer-events: auto;
+        }
+        .dpad-btn {
+            position: absolute; width: 45px; height: 45px; background: rgba(30, 41, 59, 0.85);
+            border: 2px solid #f59e0b; color: #f59e0b; font-size: 20px; font-weight: bold;
+            display: flex; justify-content: center; align-items: center; border-radius: 12px;
+            user-select: none;
+        }
+        .dpad-btn:active { background: #f59e0b; color: #000; }
+        #btn-up { top: 0; left: 47px; }
+        #btn-down { bottom: 0; left: 47px; }
+        #btn-left { top: 47px; left: 0; }
+        #btn-right { top: 47px; right: 0; }
+
+        .action-container {
+            position: absolute; bottom: 10px; right: 15px; display: flex; gap: 10px;
+            pointer-events: auto; align-items: flex-end;
+        }
+        .action-btn {
+            width: 55px; height: 55px; border-radius: 50%; background: rgba(15, 23, 42, 0.85);
+            border: 2px solid #22c55e; color: #ffffff; font-size: 13px; font-weight: bold;
+            display: flex; justify-content: center; align-items: center; flex-direction: column;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        .action-btn:active { transform: scale(0.92); background: #22c55e; color: #000; }
+        #btn-run { border-color: #3b82f6; width: 48px; height: 48px; font-size: 11px; }
+        #btn-interact-e { border-color: #facc15; }
+        #btn-interact-f { border-color: #ef4444; }
+
+        /* GAME OVER UI */
+        #game-over {
+            position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.85);
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            color: white; z-index: 60; text-align: center; padding: 20px;
+        }
+        .win-card {
+            background: linear-gradient(135deg, #1e293b, #0f172a); border: 2px solid #22c55e;
+            padding: 25px; border-radius: 20px; box-shadow: 0 0 25px rgba(34, 197, 94, 0.5);
+            max-width: 450px; width: 100%;
+        }
+        button.retry-btn { padding: 12px 28px; font-size: 16px; cursor: pointer; background: #22c55e; border: none; color: white; border-radius: 8px; font-weight: bold; margin-top: 15px; }
+    </style>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+</head>
+<body>
+
+    <div id="crosshair"></div>
+    
+    <!-- BUTANG PAPAN INFO ATAS KIRI -->
+    <button id="info-btn" onclick="openInfoModal()">ℹ️ Pemakanan Seimbang (ESC)</button>
+
+    <!-- UI MISI HUD -->
+    <div id="ui-overlay">
+        <div class="hud-card">
+            <div class="mission-title">🎯 MISI PINGGAN SIHAT</div>
+            <div class="mission-steps">
+                <span class="step-badge">1. 👨‍🍳 Chef</span> <span class="step-arrow">➔</span>
+                <span class="step-badge">2. 🍚 Karbo</span> <span class="step-arrow">➔</span>
+                <span class="step-badge">3. 🥩 Protein</span> <span class="step-arrow">➔</span>
+                <span class="step-badge">4. 🥦 Sayur</span> <span class="step-arrow">➔</span>
+                <span class="step-badge">5. 🍎 Buah</span>
+            </div>
+        </div>
+    </div>
+    
+    <div id="interaction-prompt">Tekan [E] untuk Ambil</div>
+
+    <!-- CHEF DIALOGUE UI -->
+    <div id="chef-dialog-box">
+        <h3>👨‍🍳 Chef Wan Suku: "Selamat Datang ke Dapur Sihat!"</h3>
+        <p><b>Arahan Tugasan:</b> Bantu saya lengkapkan Pinggan Sihat Malaysia dengan mengambil makanan dari meja mengikut urutan dan meletakkannya di atas pinggan bulat utama!</p>
+        <p><b>💡 3 Info Menarik Pemakanan Seimbang (Suku Suku Separuh):</b></p>
+        <ul class="chef-info-list">
+            <li>🍚 <b>Suku Karbohidrat:</b> Roti/Nasi memberikan tenaga utama tubuh tetapi perlu dikawal porsinya.</li>
+            <li>🍗 <b>Suku Protein:</b> Ikan/Daging/Ayam membina otot dan membaiki tisu badan.</li>
+            <li>🥗 <b>Separuh Sayur & Buah:</b> Kaya dengan serat, vitamin, dan mineral untuk menguatkan imuniti!</li>
+        </ul>
+        <button class="close-dialog-btn" onclick="closeChefDialog()">Mula Main / Paham!</button>
+    </div>
+
+    <!-- MODAL GAMBAR INFO BOARD -->
+    <div id="info-board-modal">
+        <h3 style="color: #38bdf8; margin-top: 0;">📋 Panduan Pemakanan Seimbang</h3>
+        <img src="https://raw.githubusercontent.com/smassrgb/Game-Pemakanan-Seimbangg/main/images.jpeg" alt="Papan Info Pemakanan">
+        <button class="close-dialog-btn" style="margin-top: 15px; background: #38bdf8;" onclick="closeInfoModal()">Sambung Main (Klik Skrin)</button>
+    </div>
+
+    <!-- MULA GAME BLOCKER -->
+    <div id="blocker">
+        <h1 style="color: #facc15;">LEVEL 3: Healthy Plate Hunt</h1>
+        <p style="font-size: 18px; font-weight: bold;">Tekan Di Mana-mana Untuk Mula / Lock Mouse</p>
+        <p style="font-size: 13px; color: #f59e0b;"><b>PC/Laptop:</b> WASD (Jalan), MOUSE (Pandang), E (Ambil), F (Letak), ESC (Info)</p>
+        <p style="font-size: 13px; color: #38bdf8;"><b>Phone:</b> Guna Skrin Touch & Butang Arrow</p>
+    </div>
+
+    <!-- MOBILE CONTROLLERS -->
+    <div id="mobile-controls">
+        <div class="dpad-container">
+            <div class="dpad-btn" id="btn-up">▲</div>
+            <div class="dpad-btn" id="btn-down">▼</div>
+            <div class="dpad-btn" id="btn-left">◀</div>
+            <div class="dpad-btn" id="btn-right">▶</div>
+        </div>
+
+        <div class="action-container">
+            <div class="action-btn" id="btn-run">RUN</div>
+            <div class="action-btn" id="btn-interact-e">AMBIL<br>(E)</div>
+            <div class="action-btn" id="btn-interact-f">LETAK<br>(F)</div>
+        </div>
+    </div>
+
+    <div id="game-over">
+        <div class="win-card">
+            <h1 id="go-title" style="margin-top: 0; font-size: 22px;">🎉 TAHNIAH! 🎉</h1>
+            <p id="go-msg" style="font-size: 15px; line-height: 1.5;"></p>
+            <button class="retry-btn" onclick="location.reload()">Main Lagi</button>
+        </div>
+    </div>
+
+    <!-- AUDIO BGM & SOUND EFFECTS -->
+    <audio id="bgm" loop preload="auto">
+        <source src="https://raw.githubusercontent.com/smassrgb/Game-Pemakanan-Seimbangg/main/France's%20Most%20Stereotypical%20Music%20%5B81J56YChYo4%5D.mp3" type="audio/mp3">
+    </audio>
+    <audio id="chefAudio" preload="auto">
+        <source src="https://raw.githubusercontent.com/smassrgb/Game-Pemakanan-Seimbangg/main/sul-sul.mp3" type="audio/mp3">
+    </audio>
+    <audio id="winAudio" preload="auto">
+        <source src="https://raw.githubusercontent.com/smassrgb/Game-Pemakanan-Seimbangg/main/pvz-winning-music.mp3" type="audio/mp3">
+    </audio>
+
+    <script>
+        const RAW_BASE_URL = "https://raw.githubusercontent.com/smassrgb/Game-Pemakanan-Seimbangg/main/";
+        
+        const PLATE_URL = RAW_BASE_URL + "Plate%20Oval%20by%20MilkAndBanana%20-%2006WhCScuAF.glb";
+        const COUNTER_URL = RAW_BASE_URL + "Counter%20Doors%20by%20Quaternius%20-%20CBUx8ZMVAO.glb";
+        const TABLE_ROUND_URL = RAW_BASE_URL + "Table%20Round%20Small%20by%20Quaternius%20-%20oEArSZykyi.glb";
+        const CHEF_URL = RAW_BASE_URL + "chef.glb";
+
+        const FOOD_ITEMS = [
+            { id: 'roti', name: 'Roti', type: 'carbo', category: 'healthy', modelUrl: RAW_BASE_URL + 'French%20Bread%20by%20Jarlan%20Perez%20-%20amZulae7WRc.glb', baseScale: 0.6, plateY: 1.52 },
+            { id: 'nasi', name: 'Nasi', type: 'carbo', category: 'healthy', modelUrl: RAW_BASE_URL + 'Bowl%20of%20rice%20by%20Poly%20by%20Google%20-%20dcnV-eqevIB.glb', baseScale: 0.5, plateY: 1.68 },
+            { id: 'steak', name: 'Steak', type: 'protein', category: 'healthy', modelUrl: RAW_BASE_URL + 'Steak%20by%20Poly%20by%20Google%20-%2012kExfiW_ba.glb', baseScale: 0.6, plateY: 1.52 },
+            { id: 'sushi', name: 'Sushi', type: 'protein', category: 'healthy', modelUrl: RAW_BASE_URL + 'Sushi%20Nigiri%20by%20Quaternius%20-%20ea93ie9bKj.glb', baseScale: 0.6, plateY: 1.52 },
+            { id: 'carrot', name: 'Carrot', type: 'vege', category: 'healthy', modelUrl: RAW_BASE_URL + 'Carrot%20by%20Poly%20by%20Google%20-%203oFkNid6ofx.glb', baseScale: 0.6, plateY: 1.68 }, 
+            { id: 'broccoli', name: 'Broccoli', type: 'vege', category: 'healthy', modelUrl: RAW_BASE_URL + 'Broccoli%20by%20jeremy%20-%20e2Z3XDxtT41.glb', baseScale: 0.6, plateY: 1.52 },
+            { id: 'apple', name: 'Apple', type: 'fruit', category: 'healthy', modelUrl: RAW_BASE_URL + 'Apple%20by%20jeremy%20-%204tOmpD9-xsV.glb', baseScale: 0.6, plateY: 1.55 },
+            { id: 'grapes', name: 'Grapes', type: 'fruit', category: 'healthy', modelUrl: RAW_BASE_URL + 'Grapes%20by%20jeremy%20-%20csU4Smr2_aV.glb', baseScale: 0.6, plateY: 1.55 },
+            { id: 'fries', name: 'Fries', type: 'junk', category: 'unhealthy', modelUrl: RAW_BASE_URL + 'French%20fries%20by%20Poly%20by%20Google%20-%204hpYt9IW-1k.glb', baseScale: 0.6 },
+            { id: 'pizza', name: 'Pizza', type: 'junk', category: 'unhealthy', modelUrl: RAW_BASE_URL + 'Pizza%20Slice%20by%20Quaternius%20-%20CA4HtaaMJn.glb', baseScale: 0.6 },
+            { id: 'donut', name: 'Donut', type: 'junk', category: 'unhealthy', modelUrl: RAW_BASE_URL + 'Donut%20by%20Quaternius%20-%20UQRRrsP3wj.glb', baseScale: 0.5 },
+            { id: 'burger', name: 'Burger', type: 'junk', category: 'unhealthy', modelUrl: RAW_BASE_URL + 'Cheeseburger%20by%20Poly%20by%20Google%20-%20eke7qcu_FR2.glb', baseScale: 0.6 },
+            { id: 'icecream', name: 'Ice Cream', type: 'junk', category: 'unhealthy', modelUrl: RAW_BASE_URL + 'Ice%20Cream%20by%20Quaternius%20-%20iZiAPq7Sne.glb', baseScale: 0.6 },
+            { id: 'cake', name: 'Cake', type: 'junk', category: 'unhealthy', modelUrl: RAW_BASE_URL + 'Cake%20by%20Kenney%20-%20KGFyP16ebH.glb', baseScale: 0.7 }
+        ];
+
+        let scene, camera, renderer, controls;
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, isSprinting = false;
+        let velocity = new THREE.Vector3();
+        let prevTime = performance.now();
+
+        let gltfLoader = new THREE.GLTFLoader();
+        let raycaster = new THREE.Raycaster();
+        let interactables = [];
+        let hoveredObject = null;
+        let heldItem = null;
+
+        let lives = 4;
+        let score = 0;
+        let timeLeft = 90;
+        let gameActive = false;
+        let isMobile = false;
+        let manualUnlock = false;
+        let plateSlotState = { carbo: false, protein: false, vege: false, fruit: false };
+        let plateObject, chefObject;
+        
+        let bgmAudio = document.getElementById('bgm');
+        let chefAudio = document.getElementById('chefAudio');
+        let winAudio = document.getElementById('winAudio');
+
+        let touchStartX = 0, touchStartY = 0;
+
+        function checkMobile() {
+            return (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768);
+        }
+
+        function playChefSound() {
+            if (chefAudio) {
+                chefAudio.currentTime = 0;
+                chefAudio.play().catch(e => console.log("Audio play error", e));
+            }
+        }
+
+        function playBGM() {
+            if (bgmAudio) {
+                bgmAudio.play().catch(e => console.log("BGM Audio blocked/error", e));
+            }
+        }
+
+        function closeChefDialog() {
+            manualUnlock = false;
+            document.getElementById('chef-dialog-box').style.display = 'none';
+            playBGM();
+            if (!isMobile) controls.lock();
+        }
+
+        function openInfoModal() {
+            manualUnlock = true;
+            const modal = document.getElementById('info-board-modal');
+            modal.style.display = 'flex';
+            if (!isMobile) controls.unlock();
+        }
+
+        function closeInfoModal() {
+            manualUnlock = false;
+            const modal = document.getElementById('info-board-modal');
+            modal.style.display = 'none';
+            playBGM();
+            if (!isMobile && gameActive) controls.lock();
+        }
+
+        function autoScaleAndCenterModel(model, targetSize) {
+            model.scale.set(1, 1, 1);
+            model.updateMatrixWorld(true);
+            const box = new THREE.Box3();
+            model.traverse((child) => { if (child.isMesh) box.expandByObject(child); });
+            const size = new THREE.Vector3(); box.getSize(size);
+            const maxDimension = Math.max(size.x, size.y, size.z);
+            if (maxDimension > 0.001 && isFinite(maxDimension)) {
+                model.scale.setScalar(targetSize / maxDimension);
+            } else {
+                model.scale.setScalar(targetSize);
+            }
+        }
+
+        function createCabinetLabel(text, bgColor = 'rgba(15, 23, 42, 0.85)', borderColor = '#f59e0b') {
+            const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = bgColor; ctx.lineWidth = 6; ctx.strokeStyle = borderColor;
+            if (ctx.roundRect) { ctx.roundRect(10, 10, 492, 108, 20); } else { ctx.rect(10, 10, 492, 108); }
+            ctx.fill(); ctx.stroke();
+            ctx.fillStyle = '#ffffff'; ctx.font = 'Bold 36px "Segoe UI", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(text, 256, 64);
+            const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false }));
+            sprite.scale.set(2.2, 0.55, 1);
+            return sprite;
+        }
+
+        function createNameTag(text, parentModel, heightOffset = 0.5) {
+            const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.85)'; ctx.lineWidth = 4; ctx.strokeStyle = '#f59e0b';
+            if (ctx.roundRect) { ctx.roundRect(10, 10, 492, 108, 20); } else { ctx.rect(10, 10, 492, 108); }
+            ctx.fill(); ctx.stroke();
+            ctx.fillStyle = '#ffffff'; ctx.font = 'Bold 42px "Segoe UI", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(text, 256, 64);
+            const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false }));
+            const parentScale = parentModel.scale.x || 1;
+            sprite.scale.set(0.8 / parentScale, 0.2 / parentScale, 1);
+            sprite.position.set(0, heightOffset / parentScale, 0);
+            sprite.userData.isTag = true;
+            return sprite;
+        }
+
+        init();
+        animate();
+
+        function init() {
+            isMobile = checkMobile();
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xfef3c7);
+            scene.fog = new THREE.FogExp2(0xfef3c7, 0.015);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 1.7, 4);
+            scene.add(camera);
+
+            scene.add(new THREE.AmbientLight(0xfff7ed, 0.95));
+            const dirLight = new THREE.DirectionalLight(0xffedd5, 0.8);
+            dirLight.position.set(10, 20, 10);
+            scene.add(dirLight);
+
+            controls = new THREE.PointerLockControls(camera, document.body);
+            const blocker = document.getElementById('blocker');
+
+            controls.addEventListener('lock', function () {
+                blocker.style.display = 'none';
+                document.getElementById('info-board-modal').style.display = 'none';
+                document.getElementById('chef-dialog-box').style.display = 'none';
+                gameActive = true;
+            });
+
+            // BILA TEKAN ESC -> MOUSE KELUAR -> POP UP PEMAKANAN SEIMBANG
+            controls.addEventListener('unlock', function () {
+                if (gameActive && !manualUnlock) {
+                    const modal = document.getElementById('info-board-modal');
+                    modal.style.display = 'flex';
+                }
+            });
+
+            // BILA KLIK PADA SKRIN MANA-MANA -> AUTO LOCK & AUTO HIDE CURSOR (GERAK MACAM BIASA)
+            document.addEventListener('click', (e) => {
+                if (isMobile) return;
+                const modal = document.getElementById('info-board-modal');
+                const chefUI = document.getElementById('chef-dialog-box');
+                const gameOver = document.getElementById('game-over');
+
+                if (modal.style.display === 'flex' || chefUI.style.display === 'flex' || gameOver.style.display === 'flex') {
+                    return; // Jangan lock jika ada popup aktif
+                }
+
+                if (!controls.isLocked) {
+                    controls.lock();
+                    playBGM();
+                }
+            });
+
+            blocker.addEventListener('click', () => { 
+                if(!isMobile) controls.lock(); 
+                blocker.style.display = 'none';
+                gameActive = true;
+                playBGM();
+            });
+
+            if(isMobile) {
+                document.getElementById('mobile-controls').style.display = 'block';
+                setupMobileControls();
+            }
+
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+
+            buildKitchenEnvironment();
+            spawnInfoBoard();
+            spawnChefNPC();
+            spawnFoodItems();
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            document.body.appendChild(renderer.domElement);
+
+            window.addEventListener('resize', onWindowResize);
+
+            setInterval(() => {
+                if(gameActive && timeLeft > 0) {
+                    timeLeft--;
+                    if(timeLeft <= 0) endGame(false, "Masa Telah Tamat!");
+                }
+            }, 1000);
+        }
+
+        function setupMobileControls() {
+            const addTouch = (id, startFn, endFn) => {
+                const el = document.getElementById(id);
+                el.addEventListener('touchstart', (e) => { e.preventDefault(); startFn(); });
+                el.addEventListener('touchend', (e) => { e.preventDefault(); endFn(); });
+            };
+
+            addTouch('btn-up', () => moveForward = true, () => moveForward = false);
+            addTouch('btn-down', () => moveBackward = true, () => moveBackward = false);
+            addTouch('btn-left', () => moveLeft = true, () => moveLeft = false);
+            addTouch('btn-right', () => moveRight = true, () => moveRight = false);
+
+            addTouch('btn-run', () => isSprinting = !isSprinting, () => {});
+            addTouch('btn-interact-e', () => interactPickUpOrChef(), () => {});
+            addTouch('btn-interact-f', () => interactPlaceDown(), () => {});
+
+            window.addEventListener('touchstart', (e) => {
+                if(e.target.tagName !== 'DIV') return;
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+            });
+
+            window.addEventListener('touchmove', (e) => {
+                if(!gameActive || e.touches.length === 0) return;
+                if(e.touches[0].clientX < window.innerWidth * 0.5 && e.touches[0].clientY > window.innerHeight * 0.5) return;
+                
+                let deltaX = e.touches[0].clientX - touchStartX;
+                let deltaY = e.touches[0].clientY - touchStartY;
+                
+                camera.rotation.y -= deltaX * 0.005;
+                camera.rotation.x -= deltaY * 0.005;
+                camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+            });
+        }
+
+        function buildKitchenEnvironment() {
+            const canvasFloor = document.createElement('canvas'); canvasFloor.width = 256; canvasFloor.height = 256;
+            const ctxF = canvasFloor.getContext('2d');
+            ctxF.fillStyle = '#b91c1c'; ctxF.fillRect(0, 0, 256, 256);
+            ctxF.strokeStyle = '#7f1d1d'; ctxF.lineWidth = 6;
+            for(let i=0; i<=256; i+=32) {
+                ctxF.beginPath(); ctxF.moveTo(i, 0); ctxF.lineTo(i, 256); ctxF.stroke();
+                ctxF.beginPath(); ctxF.moveTo(0, i); ctxF.lineTo(256, i); ctxF.stroke();
+            }
+            const floorTexture = new THREE.CanvasTexture(canvasFloor);
+            floorTexture.wrapS = THREE.RepeatWrapping; floorTexture.wrapT = THREE.RepeatWrapping;
+            floorTexture.repeat.set(16, 16);
+
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.MeshStandardMaterial({ map: floorTexture, roughness: 0.3 }));
+            floor.rotation.x = -Math.PI / 2;
+            scene.add(floor);
+
+            const createWall = (x, z, rotY) => {
+                const wall = new THREE.Mesh(new THREE.PlaneGeometry(30, 10), new THREE.MeshStandardMaterial({ color: 0xfef3c7 }));
+                wall.position.set(x, 5, z); wall.rotation.y = rotY; scene.add(wall);
+            };
+            createWall(0, -15, 0); createWall(-15, 0, Math.PI / 2); createWall(15, 0, -Math.PI / 2); createWall(0, 15, Math.PI);
+
+            gltfLoader.load(TABLE_ROUND_URL, (gltf) => {
+                const table = gltf.scene; autoScaleAndCenterModel(table, 2.2); table.position.set(0, 0, -2); scene.add(table);
+                gltfLoader.load(PLATE_URL, (gltfP) => {
+                    plateObject = gltfP.scene; autoScaleAndCenterModel(plateObject, 1.2);
+                    plateObject.position.set(0, 1.48, -2); plateObject.userData = { isPlate: true };
+                    scene.add(plateObject);
+                    plateObject.traverse((child) => { if(child.isMesh) child.userData = { isPlate: true }; });
+                    interactables.push(plateObject);
+                });
+            });
+
+            createFoodCabinet(-7, -2, Math.PI / 2, "🍚 KARBOHIDRAT", "rgba(234, 179, 8, 0.9)", "#eab308"); 
+            createFoodCabinet(7, -2, -Math.PI / 2, "🥩 PROTEIN", "rgba(239, 68, 68, 0.9)", "#ef4444"); 
+            createFoodCabinet(-4, -7, 0, "🥦 SAYUR-SAYURAN", "rgba(34, 197, 94, 0.9)", "#22c55e");          
+            createFoodCabinet(4, -7, 0, "🍎 BUAH-BUAHAN", "rgba(249, 115, 22, 0.9)", "#f97316");           
+            createFoodCabinet(-2.2, 7, Math.PI, "🛑 UNHEALTHY", "rgba(185, 28, 28, 0.9)", "#b91c1c");   
+            createFoodCabinet(2.2, 7, Math.PI, "🛑 UNHEALTHY", "rgba(185, 28, 28, 0.9)", "#b91c1c");    
+        }
+
+        function spawnInfoBoard() {
+            new THREE.TextureLoader().load(RAW_BASE_URL + "images.jpeg", (texture) => {
+                const boardGroup = new THREE.Group();
+                const frame = new THREE.Mesh(new THREE.BoxGeometry(3.6, 2.7, 0.1), new THREE.MeshStandardMaterial({ color: 0x451a03 }));
+                boardGroup.add(frame);
+                const imgMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 2.5), new THREE.MeshBasicMaterial({ map: texture }));
+                imgMesh.position.z = 0.06; boardGroup.add(imgMesh);
+                boardGroup.position.set(7, 2.5, 2.5); boardGroup.rotation.y = -Math.PI / 2;
+                scene.add(boardGroup);
+            });
+        }
+
+        function createFoodCabinet(x, z, rotationY, labelText, bgCol, borderCol) {
+            gltfLoader.load(COUNTER_URL, (gltf) => {
+                const cabinet = gltf.scene; autoScaleAndCenterModel(cabinet, 2.5);
+                cabinet.position.set(x, 0, z); cabinet.rotation.y = rotationY;
+                const label = createCabinetLabel(labelText, bgCol, borderCol); label.position.set(x, 2.5, z);
+                scene.add(label); scene.add(cabinet);
+            });
+        }
+
+        function spawnChefNPC() {
+            gltfLoader.load(CHEF_URL, (gltf) => {
+                chefObject = gltf.scene; autoScaleAndCenterModel(chefObject, 1.8);
+                chefObject.position.set(-7, 0, 2.5); chefObject.rotation.y = Math.PI / 2;
+                chefObject.userData = { isChef: true, name: 'Chef Wan Suku' };
+                chefObject.add(createNameTag("👨‍🍳 Chef Wan Suku", chefObject, 1.2));
+                chefObject.traverse((child) => { if(child.isMesh) child.userData = { isChef: true, rootModel: chefObject }; });
+                scene.add(chefObject); interactables.push(chefObject);
+            });
+        }
+
+        function spawnFoodItems() {
+            const CABINET_Y = 1.62;
+            const positions = [
+                { item: FOOD_ITEMS[0], pos: [-7, CABINET_Y, -2.8] }, { item: FOOD_ITEMS[1], pos: [-7, CABINET_Y, -1.2] },
+                { item: FOOD_ITEMS[2], pos: [7, CABINET_Y, -2.8] }, { item: FOOD_ITEMS[3], pos: [7, CABINET_Y, -1.2] },
+                { item: FOOD_ITEMS[4], pos: [-4.8, CABINET_Y, -7] }, { item: FOOD_ITEMS[5], pos: [-3.2, CABINET_Y, -7] },
+                { item: FOOD_ITEMS[6], pos: [3.2, CABINET_Y, -7] }, { item: FOOD_ITEMS[7], pos: [4.8, CABINET_Y, -7] },
+                { item: FOOD_ITEMS[8], pos: [-3.2, CABINET_Y, 7] }, { item: FOOD_ITEMS[9], pos: [-2.2, CABINET_Y, 7] },
+                { item: FOOD_ITEMS[10], pos: [-1.2, CABINET_Y, 7] }, { item: FOOD_ITEMS[11], pos: [1.2, CABINET_Y, 7] },
+                { item: FOOD_ITEMS[12], pos: [2.2, CABINET_Y, 7] }, { item: FOOD_ITEMS[13], pos: [3.2, CABINET_Y, 7] }
+            ];
+
+            positions.forEach(data => {
+                gltfLoader.load(data.item.modelUrl, (gltf) => {
+                    const model = gltf.scene; autoScaleAndCenterModel(model, data.item.baseScale);
+                    model.position.set(...data.pos); model.userData = { ...data.item, isFood: true };
+                    const nameTag = createNameTag(data.item.name, model, 0.45);
+                    model.add(nameTag); model.userData.nameTag = nameTag;
+                    model.traverse((child) => { if(child.isMesh) child.userData = { ...data.item, isFood: true, rootModel: model }; });
+                    scene.add(model); interactables.push(model);
+                });
+            });
+        }
+
+        function onKeyDown(e) {
+            switch (e.code) {
+                case 'KeyW': moveForward = true; break;
+                case 'KeyS': moveBackward = true; break;
+                case 'KeyA': moveLeft = true; break;
+                case 'KeyD': moveRight = true; break;
+                case 'ShiftLeft': isSprinting = true; break;
+                case 'KeyE': interactPickUpOrChef(); break;
+                case 'KeyF': interactPlaceDown(); break;
+            }
+        }
+
+        function onKeyUp(e) {
+            switch (e.code) {
+                case 'KeyW': moveForward = false; break;
+                case 'KeyS': moveBackward = false; break;
+                case 'KeyA': moveLeft = false; break;
+                case 'KeyD': moveRight = false; break;
+                case 'ShiftLeft': isSprinting = false; break;
+            }
+        }
+
+        function interactPickUpOrChef() {
+            if (!hoveredObject) return;
+            if (hoveredObject.userData.isChef) {
+                const dialogBox = document.getElementById('chef-dialog-box');
+                playChefSound();
+                manualUnlock = true;
+                dialogBox.style.display = (dialogBox.style.display === 'flex') ? 'none' : 'flex';
+                if(!isMobile && dialogBox.style.display === 'flex') controls.unlock();
+                return;
+            }
+
+            if (heldItem || !hoveredObject.userData.isFood) return;
+            let targetModel = hoveredObject.userData.rootModel || hoveredObject;
+            heldItem = targetModel;
+
+            if (heldItem.userData.nameTag) heldItem.userData.nameTag.visible = false;
+
+            // LEKATKAN MODEL PADA KAMERA (PEGANGBAGI NAMPAK DI TANGAN)
+            scene.remove(heldItem); 
+            camera.add(heldItem);
+            autoScaleAndCenterModel(heldItem, 0.3);
+            heldItem.position.set(0.35, -0.3, -0.5); 
+            heldItem.rotation.set(0.2, -0.5, 0.1); 
+
+            document.getElementById('interaction-prompt').style.display = 'none';
+        }
+
+        function interactPlaceDown() {
+            if (!heldItem || !hoveredObject || !hoveredObject.userData.isPlate) return;
+            const itemData = heldItem.userData;
+
+            if (itemData.category === 'unhealthy') {
+                triggerMistake("❌ Ini bukan makanan sihat!"); return;
+            }
+            if (plateSlotState[itemData.type]) {
+                triggerMistake(`❌ Slot Makanan ini telah lengkap!`); return;
+            }
+
+            plateSlotState[itemData.type] = true;
+            camera.remove(heldItem); 
+            scene.add(heldItem);
+            
+            const itemY = itemData.plateY || 1.52;
+            const offsets = {
+                carbo:   [-0.2, itemY, -2.15],
+                protein: [ 0.2, itemY, -2.15],
+                vege:    [-0.2, itemY, -1.85],
+                fruit:   [ 0.2, itemY, -1.85]
+            };
+            
+            heldItem.position.set(...offsets[itemData.type]);
+            autoScaleAndCenterModel(heldItem, 0.25);
+            heldItem.rotation.set(0, 0, 0);
+            if (heldItem.userData.nameTag) heldItem.userData.nameTag.visible = false;
+            
+            interactables = interactables.filter(i => i !== heldItem);
+            heldItem = null; score += 125;
+
+            if (score >= 500) {
+                endGame(true, "Tahniah! Anda berjaya melengkapkan Pinggan Sihat Malaysia (Suku Suku Separuh) dengan sempurna!");
+            }
+        }
+
+        function triggerMistake(msg) {
+            lives--;
+            const prompt = document.getElementById('interaction-prompt');
+            prompt.innerText = msg; prompt.style.color = '#ef4444'; prompt.style.display = 'block';
+            setTimeout(() => { prompt.style.display = 'none'; prompt.style.color = '#facc15'; }, 2000);
+            if (lives <= 0) endGame(false, "Nyawa anda telah habis!");
+        }
+
+        function endGame(isWin, message) {
+            gameActive = false;
+            manualUnlock = true;
+            if(!isMobile) controls.unlock();
+            if (bgmAudio) bgmAudio.pause();
+
+            const goScreen = document.getElementById('game-over');
+            document.getElementById('go-title').innerText = isWin ? "🎉 TAHNIAH! SYABAS! 🎉" : "GAME OVER";
+            document.getElementById('go-msg').innerText = message;
+            goScreen.style.display = 'flex';
+
+            if (isWin) {
+                if (winAudio) { winAudio.currentTime = 0; winAudio.play().catch(e => console.log(e)); }
+                if (typeof confetti === 'function') confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 } });
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = performance.now();
+
+            if (gameActive) {
+                const delta = (time - prevTime) / 1000;
+                
+                // SISTEM PERGERAKAN WASD YANG DIPERBAIKI
+                velocity.x -= velocity.x * 10.0 * delta;
+                velocity.z -= velocity.z * 10.0 * delta;
+
+                const speed = isSprinting ? 8.0 : 4.0;
+
+                if (moveForward) velocity.z -= speed * 10.0 * delta;
+                if (moveBackward) velocity.z += speed * 10.0 * delta;
+                if (moveLeft) velocity.x -= speed * 10.0 * delta;
+                if (moveRight) velocity.x += speed * 10.0 * delta;
+
+                if (!isMobile && controls.isLocked) {
+                    controls.moveRight(velocity.x * delta);
+                    controls.moveForward(-velocity.z * delta);
+                } else if (isMobile) {
+                    camera.translateX(velocity.x * delta);
+                    camera.translateZ(velocity.z * delta);
+                    camera.position.y = 1.7;
+                }
+
+                raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+                const intersects = raycaster.intersectObjects(interactables.filter(obj => !obj.userData.isTag), true);
+                const prompt = document.getElementById('interaction-prompt');
+
+                if (intersects.length > 0 && intersects[0].distance < 3.8) {
+                    let hitMesh = intersects[0].object;
+                    if (!hitMesh.userData.isTag) {
+                        hoveredObject = hitMesh;
+                        if (hitMesh.userData.isChef) {
+                            prompt.innerText = `Tekan [E] / Butang Bicara untuk Chef Wan`; prompt.style.display = 'block';
+                        } else if (!heldItem && hitMesh.userData.isFood) {
+                            prompt.innerText = `Ambil ${hitMesh.userData.name}`; prompt.style.display = 'block';
+                        } else if (heldItem && hitMesh.userData.isPlate) {
+                            prompt.innerText = `Letak ${heldItem.userData.name}`; prompt.style.display = 'block';
+                        }
+                    }
+                } else {
+                    hoveredObject = null;
+                    if(prompt.style.color !== 'rgb(239, 68, 68)') prompt.style.display = 'none';
+                }
+
+                interactables.forEach(obj => { if(obj.userData.isFood && obj !== heldItem) obj.rotation.y += 0.01; });
+            }
+
+            prevTime = time;
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
+</body>
+</html>
